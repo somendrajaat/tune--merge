@@ -1,4 +1,4 @@
-package com.tunemerge.tunemerge.Model;
+package com.tunemerge.tunemerge.Model.SpotifyModel;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

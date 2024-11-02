@@ -1,16 +1,15 @@
-/**
-    * Generates the authorization URL for Spotify OAuth.
-    * 
-    * @return The authorization URL.
-    */
 package com.tunemerge.tunemerge.Service;
 
+import com.tunemerge.tunemerge.Configuration.Config;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
-import com.tunemerge.tunemerge.Model.accessToken;
+import com.tunemerge.tunemerge.Model.AmazonMusic.AmazonAccessToken;
+import com.tunemerge.tunemerge.Model.SpotifyModel.accessToken;
 import com.tunemerge.tunemerge.Repository.AccessTokenRepository;
+import com.tunemerge.tunemerge.Repository.AmazonAccessTokenRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -22,29 +21,39 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Utility class for handling OAuth authentication with Spotify.
+ * Utility class for handling OAuth authentication with Spotify and Amazon Music.
+ *
+ * This class provides methods to generate authorization URLs and retrieve access tokens.
+ *
+ * @author Somendra
  */
 @Service
-public  class OAuthUtil {
+public class OAuthUtil {
 
-
-    private static final String CLIENT_ID = "e80ca1772ab3487ca2092bd8de12fb35";
-    private static final String AMAZON_CLIENT_ID = "amzn1.application-oa2-client.a70e6467740045d08b1ff319d6807473";
-    private static final String CLIENT_SECRET = "7a43835ef73545258aef33809b98ff28";
-    private static final String AMAZON_CLIENT_SECRET= "amzn1.oa2-cs.v1.29cd29344213e30041da040bf4e46d912d0aa9045e33e1fdab7837088e8d6123";
+    private static final String CLIENT_ID = Config.getClientId();
+    private static final String CLIENT_SECRET = Config.getClientSecret();
+    private static final String AMAZON_CLIENT_ID = Config.getAmazonClientId();
+    private static final String AMAZON_CLIENT_SECRET = Config.getAmazonClientSecret();
     private static final String REDIRECT_URI = "http://localhost:8080/tune_merge";
-    
+
+    @Autowired
+    accessToken at;
+    @Autowired
+    AccessTokenRepository accessTokenRepository;
+    @Autowired
+    AmazonAccessTokenRepository amazonAccessTokenRepository;
+
     /**
      * Generates the authorization URL for Spotify OAuth authentication.
-     * 
+     *
      * @return The authorization URL.
      */
-    public static String getAuthURL (){
-        String scope="playlist-read-public playlist-read-private";
-        String authURL="https://accounts.spotify.com/authorize?"
-        +"client_id="+CLIENT_ID
-        +"&response_type=code"
-        +"&redirect_uri="+REDIRECT_URI;
+    public static String getAuthURL() {
+        String scope = "playlist-read-public playlist-read-private";
+        String authURL = "https://accounts.spotify.com/authorize?"
+                + "client_id=" + CLIENT_ID
+                + "&response_type=code"
+                + "&redirect_uri=" + REDIRECT_URI;
         return authURL;
     }
 
@@ -54,8 +63,8 @@ public  class OAuthUtil {
      * @return The authorization URL.
      */
     public static String getAmazonAuthURL() {
-        String scope = "music::catalog"; // Start with a basic scope
-        String RedirectUri = "http://localhost:8080/amazonToken"; // Ensure this matches your registered URL
+        String scope = "catalog"; // Start with a basic scope
+        String RedirectUri = "http://localhost:8080/tune_merge"; // Ensure this matches your registered URL
 
         try {
             return "https://www.amazon.com/ap/oa?"
@@ -68,60 +77,84 @@ public  class OAuthUtil {
             return null; // Handle error gracefully
         }
     }
-    @Autowired
-    accessToken at;
-    @Autowired
-    AccessTokenRepository accessTokenRepository;
 
-
-
-//------------------------------------------somendra---------------------------------------------------------------------------
-public accessToken getAccessToken(String code) {
-
-
-    RestTemplate restTemplate = new RestTemplate();
-
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-    headers.setBasicAuth(CLIENT_ID, CLIENT_SECRET);
-
-    MultiValueMap<String, String> map= new LinkedMultiValueMap<>();
-    map.add("grant_type", "authorization_code");
-    map.add("code", code);
-    map.add("redirect_uri", REDIRECT_URI);
-
-    HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
-
-    ResponseEntity<accessToken> response = restTemplate.postForEntity("https://accounts.spotify.com/api/token", request, accessToken.class);
-    accessToken token= response.getBody();
-    assert token != null;
-    accessTokenRepository.save(token);
-
-
-    return token;
-}
-public accessToken getAccessTokenAmazon(String code) {
-
-
+    /**
+     * Retrieves the access token from Spotify using the provided authorization code.
+     *
+     * @param code The authorization code from Spotify.
+     * @return The access token.
+     */
+    public accessToken getAccessToken(String code) {
         RestTemplate restTemplate = new RestTemplate();
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         headers.setBasicAuth(CLIENT_ID, CLIENT_SECRET);
 
-        MultiValueMap<String, String> map= new LinkedMultiValueMap<>();
+        MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
         map.add("grant_type", "authorization_code");
         map.add("code", code);
         map.add("redirect_uri", REDIRECT_URI);
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
 
-        ResponseEntity<accessToken> response = restTemplate.postForEntity("https://api.amazon.com/auth/o2/token", request, accessToken.class);
-        accessToken token= response.getBody();
+        ResponseEntity<accessToken> response = restTemplate.postForEntity("https://accounts.spotify.com/api/token", request, accessToken.class);
+        accessToken token = response.getBody();
         assert token != null;
         accessTokenRepository.save(token);
+        return token;
+    }
 
+    /**
+     * Retrieves the access token from Amazon Music using the provided authorization code.
+     *
+     * @param code The authorization code from Amazon Music.
+     * @return The Amazon access token.
+     */
+    public AmazonAccessToken getAccessTokenAmazon(String code) {
+        RestTemplate restTemplate = new RestTemplate();
+        Logger logger = LoggerFactory.getLogger(this.getClass());
 
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.setBasicAuth(AMAZON_CLIENT_ID, AMAZON_CLIENT_SECRET);
+
+        MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+        map.add("grant_type", "authorization_code");
+        map.add("code", code);
+        map.add("redirect_uri", REDIRECT_URI);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
+        ResponseEntity<AmazonAccessToken> response = restTemplate.postForEntity("https://api.amazon.com/auth/o2/token", request, AmazonAccessToken.class);
+        AmazonAccessToken token = response.getBody();
+        assert token != null;
+        amazonAccessTokenRepository.save(token);
+        return token;
+    }
+
+    /**
+     * Retrieves the access token from Amazon Music as a string using the provided authorization code.
+     *
+     * @param code The authorization code from Amazon Music.
+     * @return The access token as a string.
+     */
+    public String getAccessTokenAmazonString(String code) {
+        RestTemplate restTemplate = new RestTemplate();
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.setBasicAuth(AMAZON_CLIENT_ID, AMAZON_CLIENT_SECRET);
+
+        MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+        map.add("grant_type", "authorization_code");
+        map.add("code", code);
+        map.add("redirect_uri", REDIRECT_URI);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
+        ResponseEntity<String> response = restTemplate.postForEntity("https://api.amazon.com/auth/o2/token", request, String.class);
+        String token = response.getBody();
+        assert token != null;
         return token;
     }
 }

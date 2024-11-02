@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tunemerge.tunemerge.Model.Album.AlbumResponse;
 import com.tunemerge.tunemerge.Model.SpotifyModel.PlaylistResponse;
 import com.tunemerge.tunemerge.Model.SpotifyModel.SinglePlaylist;
-import com.tunemerge.tunemerge.Model.accessToken;
+import com.tunemerge.tunemerge.Model.SpotifyModel.accessToken;
 import com.tunemerge.tunemerge.Model.userProfile.UserProfile;
 import com.tunemerge.tunemerge.Repository.AccessTokenRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,14 +14,15 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
  * This class represents a service for interacting with the Spotify API.
+ *
+ * This service provides methods to retrieve user playlists, profile, and other Spotify resources.
+ *
+ * @author Somendra
  */
 @Service
 public class SpotifyService {
@@ -29,6 +30,13 @@ public class SpotifyService {
     private static final String SPOTIFY_API_URL = "https://api.spotify.com/v1/me/playlists";
     @Autowired
     AccessTokenRepository accessTRepository;
+
+    /**
+     * Retrieves the user's playlists from Spotify.
+     *
+     * @param accessToken the access token for Spotify API.
+     * @return a PlaylistResponse containing the user's playlists.
+     */
     public PlaylistResponse getUserPlaylists(String accessToken) {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
@@ -51,10 +59,14 @@ public class SpotifyService {
         }
     }
 
-
-    // ----------------------------------------------------------somendra---------------------------------------------------------------
     private static final String SPOTIFY_PROFILE_URL = "https://api.spotify.com/v1/me";
 
+    /**
+     * Retrieves the user's profile from Spotify.
+     *
+     * @param accessToken the access token for Spotify API.
+     * @return a UserProfile containing the user's profile information.
+     */
     public UserProfile getProfile(String accessToken) {
         RestTemplate restTemplate = new RestTemplate();
 
@@ -78,16 +90,22 @@ public class SpotifyService {
         }
     }
 
-
-
+    /**
+     * Retrieves the latest access token from the database.
+     *
+     * @return the latest accessToken.
+     */
     public accessToken getAccessToken() {
-        // bhai yeh access token jo database me save hoga udher se uthayega
         return accessTRepository.findTopByOrderByIdDesc();
-
     }
 
-
-
+    /**
+     * Retrieves the items of a specific playlist from Spotify.
+     *
+     * @param accessToken the access token for Spotify API.
+     * @param playlistId the ID of the playlist to retrieve.
+     * @return a SinglePlaylist containing the playlist items.
+     */
     public SinglePlaylist getPlaylistItems(String accessToken, String playlistId) {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
@@ -110,8 +128,13 @@ public class SpotifyService {
         }
     }
 
-
-
+    /**
+     * Retrieves a specific album from Spotify.
+     *
+     * @param accessToken the access token for Spotify API.
+     * @param albumId the ID of the album to retrieve.
+     * @return an AlbumResponse containing the album details.
+     */
     public AlbumResponse getAlbum(String accessToken, String albumId) {
         RestTemplate restTemplate = new RestTemplate();
 
@@ -128,8 +151,7 @@ public class SpotifyService {
             ObjectMapper objectMapper = new ObjectMapper();
             objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             try {
-                return objectMapper.readValue(json, new TypeReference<>() {
-                });
+                return objectMapper.readValue(json, new TypeReference<>() {});
             } catch (Exception e) {
                 e.printStackTrace();
                 return null;
@@ -139,6 +161,14 @@ public class SpotifyService {
         }
     }
 
+    /**
+     * Creates a new playlist for the user on Spotify.
+     *
+     * @param accessToken the access token for Spotify API.
+     * @param userId the ID of the user.
+     * @param playlistName the name of the new playlist.
+     * @return a PlaylistResponse containing the details of the created playlist.
+     */
     public PlaylistResponse createPlaylist(String accessToken, String userId, String playlistName) {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
